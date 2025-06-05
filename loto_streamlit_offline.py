@@ -229,3 +229,94 @@ with st.expander("📤 Încarcă extrageri noi (Excel)"):
 
         except Exception as e:
             st.error(f"Eroare la încărcarea fișierului: {e}")
+
+
+with st.expander("🗂️ Jurnal de actualizări"):
+    log_file = "update_log.csv"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if uploaded_new:
+        try:
+            new_rows = len(df_new)
+            with open(log_file, "a") as log:
+                log.write(f"{now},{new_rows},{uploaded_new.name}\n")
+            st.success(f"📝 Înregistrare log: {new_rows} extrageri din {uploaded_new.name}")
+        except Exception as e:
+            st.error(f"Eroare la scrierea logului: {e}")
+
+    if os.path.exists(log_file):
+        log_df = pd.read_csv(log_file, names=["Timp", "Nr Extrageri", "Fișier"])
+        st.dataframe(log_df)
+        st.download_button("📥 Descarcă jurnalul (CSV)", log_df.to_csv(index=False), "update_log.csv", "text/csv")
+
+
+with st.expander("🔮 Predicție ML: 6 numere din 49"):
+    try:
+        frecvente = sorted(frecventa.items(), key=lambda x: x[1], reverse=True)
+        predictie_6 = [int(x[0]) for x in frecvente[:6]]
+        st.success(f"🎯 Predicție ML (6 numere): {predictie_6}")
+    except Exception as e:
+        st.error("Eroare la generarea predicției cu 6 numere.")
+
+
+with st.expander("💾 Salvare predicție ML (6 numere)"):
+    try:
+        pred_dict = {
+            "data_predictie": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "predictie_6numere": predictie_6
+        }
+        with open("predictie_6numere.json", "w") as f:
+            json.dump(pred_dict, f, indent=4)
+        with open("predictie_6numere.json", "rb") as f:
+            st.download_button("📥 Descarcă JSON", f, "predictie_6numere.json", "application/json")
+    except Exception as e:
+        st.error("Eroare la salvarea predicției.")
+
+
+with st.expander("📊 Istoric apariții pentru cele 6 numere prezise"):
+    try:
+        history_df = df.copy()
+        history_df['Data'] = pd.to_datetime(history_df['Data'])
+        history_df = history_df.sort_values("Data")
+
+        fig, ax = plt.subplots(figsize=(10, 4))
+        for number in predictie_6:
+            appearances = history_df[draw_cols].apply(lambda row: number in row.values, axis=1)
+            ax.plot(history_df['Data'], appearances.cumsum(), label=f"Nr {number}")
+        ax.set_title("Evoluția aparițiilor (cumulativ) pentru cele 6 numere prezise")
+        ax.set_xlabel("Data")
+        ax.set_ylabel("Număr apariții")
+        ax.legend()
+        st.pyplot(fig)
+    except Exception as e:
+        st.error("Eroare la generarea graficului.")
+
+
+with st.expander("🔍 Compară cu selecție aleatorie"):
+    try:
+        import random
+        random_prediction = sorted(random.sample(range(1, 50), 6))
+        st.write("🎯 Predicție ML:", predictie_6)
+        st.write("🎲 Selecție aleatorie:", random_prediction)
+
+        # Calculează frecvențe cumulative
+        history_df = df.copy()
+        history_df['Data'] = pd.to_datetime(history_df['Data'])
+        history_df = history_df.sort_values("Data")
+
+        fig, ax = plt.subplots(figsize=(10, 4))
+        for number in predictie_6:
+            appearances = history_df[draw_cols].apply(lambda row: number in row.values, axis=1)
+            ax.plot(history_df['Data'], appearances.cumsum(), label=f"ML {number}", linestyle='-')
+
+        for number in random_prediction:
+            appearances = history_df[draw_cols].apply(lambda row: number in row.values, axis=1)
+            ax.plot(history_df['Data'], appearances.cumsum(), label=f"Random {number}", linestyle='--')
+
+        ax.set_title("📈 Evoluție apariții: ML vs Random")
+        ax.set_xlabel("Data")
+        ax.set_ylabel("Apariții cumulative")
+        ax.legend()
+        st.pyplot(fig)
+    except Exception as e:
+        st.error("Eroare la compararea cu selecție aleatorie.")
